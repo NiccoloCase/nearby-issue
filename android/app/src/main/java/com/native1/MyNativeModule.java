@@ -10,6 +10,9 @@ import com.facebook.react.bridge.Callback;
 
 import java.util.Map;
 import java.util.HashMap;
+
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 import android.app.Activity;
 
@@ -19,12 +22,17 @@ import com.google.android.gms.nearby.messages.MessageListener;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.ConnectionResult;
 
+// eventi
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.Arguments;
+
+
 import android.bluetooth.BluetoothAdapter;
 
 public class MyNativeModule extends ReactContextBaseJavaModule {
 
     private static ReactApplicationContext reactContext;
-
     private Message message;
     private MessageListener messageListener;
 
@@ -38,34 +46,33 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
         return "MyNativeModule";
     }
 
-    @ReactMethod(isBlockingSynchronousMethod = true)
-    public String sayHi() {
-        Log.d("MyNativeModule", "bella");
-        return "HI";
+    @ReactMethod
+    public void isAvailable(Callback callBack){
+        boolean isGooglePlayServicesAvailable = isGooglePlayServicesAvailable();
+        callBack.invoke(isGooglePlayServicesAvailable);
     }
 
     @ReactMethod
     public void initNearby(Callback callBack) {
         boolean isGooglePlayServicesAvailable = isGooglePlayServicesAvailable();
 
-        if(isGooglePlayServicesAvailable){
+        if (isGooglePlayServicesAvailable) {
             this.messageListener = new MessageListener() {
                 @Override
                 public void onFound(Message message) {
                     Log.d("ReactNative", "Found message: " + new String(message.getContent()));
+                    emitMessageEvent("onMessageFound", new String(message.getContent()));
                 }
 
                 @Override
                 public void onLost(Message message) {
                     Log.d("ReactNative", "Lost sight of message: " + new String(message.getContent()));
+                    emitMessageEvent("onMessageLost", new String(message.getContent()));
                 }
             };
 
-            this.message = new Message("Hello World".getBytes());
-
-            Log.d("ReactNative", "Inizializzato Nearby");
+            Log.d("ReactNative", "SCANNING...");
         }
-
         callBack.invoke(isGooglePlayServicesAvailable);
     }
 
@@ -74,11 +81,42 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
         Activity currentActivity = getCurrentActivity();
 
         if (currentActivity != null) {
-            Nearby.getMessagesClient(currentActivity).publish(this.message);
             Nearby.getMessagesClient(currentActivity).subscribe(this.messageListener);
-
         }
     }
+
+    @ReactMethod
+    public void stop() {
+        Activity currentActivity = getCurrentActivity();
+
+        if (currentActivity != null) {
+            Nearby.getMessagesClient(currentActivity).unpublish(this.message);
+            Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
+        }
+    }
+
+    @ReactMethod
+    public void send(String messageText) {
+        Activity currentActivity = getCurrentActivity();
+
+        if (currentActivity != null) {
+            this.message = new Message(messageText.getBytes());
+
+            Nearby.getMessagesClient(currentActivity).publish(this.message);
+            Log.d("ReactNative", "sending...");
+        }
+    }
+
+    @ReactMethod
+    public void startActivity() {
+        Activity currentActivity = getCurrentActivity();
+        Log.d("ReactNative", "INIZIALIZZAZIONE FOREGROUND SERVICE");
+        Intent serviceIntent = new Intent(currentActivity, MyForegroundService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            currentActivity.startForegroundService(serviceIntent);
+        }
+    }
+
     private boolean isGooglePlayServicesAvailable() {
         Activity currentActivity = getCurrentActivity();
 
@@ -89,5 +127,14 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
             googleApi.getErrorDialog(currentActivity, availability, 9000).show();
         }
         return result;
+    }
+
+    private void emitMessageEvent(String eventName, String message) {
+        WritableMap params = Arguments.createMap();
+        params.putString("message", message);
+
+        reactContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit(eventName, params);
     }
 }
