@@ -29,7 +29,6 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.Arguments;
 
-
 import android.bluetooth.BluetoothAdapter;
 
 public class MyNativeModule extends ReactContextBaseJavaModule {
@@ -38,7 +37,6 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     private Message message;
     private MessageListener messageListener;
     private Intent serviceIntent;
-
 
     MyNativeModule(ReactApplicationContext context) {
         super(context);
@@ -51,7 +49,7 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void isAvailable(Callback callBack){
+    public void isAvailable(Callback callBack) {
         boolean isGooglePlayServicesAvailable = isGooglePlayServicesAvailable();
         callBack.invoke(isGooglePlayServicesAvailable);
     }
@@ -74,8 +72,6 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
                     emitMessageEvent("onMessageLost", new String(message.getContent()));
                 }
             };
-
-            Log.d("ReactNative", "SCANNING...");
         }
         callBack.invoke(isGooglePlayServicesAvailable);
     }
@@ -93,9 +89,11 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     public void stop() {
         Activity currentActivity = getCurrentActivity();
         if (currentActivity != null) {
-            if(this.message != null) Nearby.getMessagesClient(currentActivity).unpublish(this.message);
-            if (this.messageListener != null) Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
-            if(this.serviceIntent != null) {
+            if (this.message != null)
+                Nearby.getMessagesClient(currentActivity).unpublish(this.message);
+            if (this.messageListener != null)
+                Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
+            if (this.serviceIntent != null) {
                 currentActivity.stopService(this.serviceIntent);
                 emitMessageEvent("onActivityStop", "stopped");
                 Log.d("ReactNative", "KILLING FOREGROUND SERVICE");
@@ -117,7 +115,7 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void startActivity(String message) {
-        if(!isServiceRunning()){
+        if (!isServiceRunning()) {
             Log.d("ReactNative", "INIZIALIZZAZIONE FOREGROUND SERVICE");
 
             Activity currentActivity = getCurrentActivity();
@@ -136,7 +134,7 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void isActivityRunning(Callback callBack){
+    public void isActivityRunning(Callback callBack) {
         Boolean running = isServiceRunning();
         callBack.invoke(running);
     }
