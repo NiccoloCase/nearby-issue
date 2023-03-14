@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -26,6 +27,9 @@ public class MyForegroundService extends Service {
         context = this;
         isKilled = false;
 
+       Bundle bundle = intent.getExtras();
+       String message = bundle.getString("message");
+
         // SERVICE
         new Thread(
                 new Runnable() {
@@ -38,7 +42,7 @@ public class MyForegroundService extends Service {
                             clock++;
 
                             // NEARBY:
-                            context.message = new Message("CIAO".getBytes());
+                            context.message = new Message(message.getBytes());
                             Strategy strategy = new Strategy.Builder().setTtlSeconds(Strategy.TTL_SECONDS_MAX).build();
                             PublishOptions options = new PublishOptions.Builder().setStrategy(strategy).build();
                             Nearby.getMessagesClient(context).publish(context.message,options);

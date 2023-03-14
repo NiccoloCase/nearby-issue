@@ -11,8 +11,10 @@ import com.facebook.react.bridge.Callback;
 import java.util.Map;
 import java.util.HashMap;
 
+import android.app.ActivityManager;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Bundle;
 import android.util.Log;
 import android.app.Activity;
 
@@ -35,6 +37,8 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     private static ReactApplicationContext reactContext;
     private Message message;
     private MessageListener messageListener;
+    private Intent serviceIntent;
+
 
     MyNativeModule(ReactApplicationContext context) {
         super(context);
@@ -88,11 +92,16 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void stop() {
         Activity currentActivity = getCurrentActivity();
-
         if (currentActivity != null) {
-            Nearby.getMessagesClient(currentActivity).unpublish(this.message);
-            Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
+            if(this.message != null) Nearby.getMessagesClient(currentActivity).unpublish(this.message);
+            if (this.messageListener != null) Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
+            if(this.serviceIntent != null) {
+                currentActivity.stopService(this.serviceIntent);
+                emitMessageEvent("onActivityStop", "stopped");
+                Log.d("ReactNative", "KILLING FOREGROUND SERVICE");
+            }
         }
+
     }
 
     @ReactMethod
@@ -101,20 +110,35 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
 
         if (currentActivity != null) {
             this.message = new Message(messageText.getBytes());
-
             Nearby.getMessagesClient(currentActivity).publish(this.message);
             Log.d("ReactNative", "sending...");
         }
     }
 
     @ReactMethod
-    public void startActivity() {
-        Activity currentActivity = getCurrentActivity();
-        Log.d("ReactNative", "INIZIALIZZAZIONE FOREGROUND SERVICE");
-        Intent serviceIntent = new Intent(currentActivity, MyForegroundService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            currentActivity.startForegroundService(serviceIntent);
+    public void startActivity(String message) {
+        if(!isServiceRunning()){
+            Log.d("ReactNative", "INIZIALIZZAZIONE FOREGROUND SERVICE");
+
+            Activity currentActivity = getCurrentActivity();
+            this.serviceIntent = new Intent(currentActivity, MyForegroundService.class);
+            Bundle bundle = new Bundle();
+            bundle.putString("message", message);
+            this.serviceIntent.putExtras(bundle);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                currentActivity.startForegroundService(this.serviceIntent);
+            } else {
+                currentActivity.startService(this.serviceIntent);
+            }
+            emitMessageEvent("onActivityStart", "started");
         }
+    }
+
+    @ReactMethod
+    public void isActivityRunning(Callback callBack){
+        Boolean running = isServiceRunning();
+        callBack.invoke(running);
     }
 
     private boolean isGooglePlayServicesAvailable() {
@@ -136,5 +160,21 @@ public class MyNativeModule extends ReactContextBaseJavaModule {
         reactContext
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                 .emit(eventName, params);
+    }
+
+    private boolean isServiceRunning() {
+        Activity context = getCurrentActivity();
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            ActivityManager manager = (ActivityManager) context.getSystemService(context.ACTIVITY_SERVICE);
+            for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+                if (MyForegroundService.class.getName().equals(service.service.getClassName())) {
+                    return service.foreground;
+                }
+            }
+            return false;
+        }
+
+        return false;
     }
 }

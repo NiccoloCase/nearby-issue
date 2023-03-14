@@ -15,23 +15,39 @@ import {getDeviceName} from 'react-native-device-info';
 const App = () => {
   const [deviceName, setDeviceName] = useState('');
   const [devices, setDevices] = useState([]);
+  const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => {
+    NativeModules.MyNativeModule.isActivityRunning(res => {
+      setIsRunning(res);
+    });
+  }, []);
 
   useEffect(() => {
     getDeviceName().then(setDeviceName);
 
-    const eventEmitter = new NativeEventEmitter(NativeModules.MyNativeModule);
-    const eventListener = eventEmitter.addListener('onMessageFound', event => {
-      console.log(
-        `[${deviceName}]: messaggio ricevuto dal dispositivo "${event.message}"`,
-      );
-      setDevices(d => [...d, event.message]);
-    });
+    const emitters = [];
 
-    const eventListener2 = eventEmitter.addListener('onMessageLost', event => {
-      console.log(
-        `[${deviceName}]: messaggio perso dal dispositivo "${event.message}"`,
-      );
-    });
+    const eventEmitter = new NativeEventEmitter();
+    emitters.push(
+      eventEmitter.addListener('onMessageFound', event => {
+        console.log(
+          `[${deviceName}]: messaggio ricevuto dal dispositivo "${event.message}"`,
+        );
+        setDevices(d => [...d, event.message]);
+      }),
+      eventEmitter.addListener('onMessageLost', event => {
+        console.log(
+          `[${deviceName}]: messaggio perso dal dispositivo "${event.message}"`,
+        );
+      }),
+      eventEmitter.addListener('onActivityStart', () => setIsRunning(true)),
+      eventEmitter.addListener('onActivityStop', () => setIsRunning(false)),
+    );
+
+    return () => {
+      emitters.forEach(emitter => emitter.remove());
+    };
   }, []);
 
   function onPressScan() {
@@ -66,16 +82,12 @@ const App = () => {
     });
   }
 
-  const onPressSend = () => {
-    NativeModules.MyNativeModule.send(deviceName);
-  };
-
   const onPressStop = () => {
     NativeModules.MyNativeModule.stop();
   };
 
   const onPressActivity = () => {
-    NativeModules.MyNativeModule.startActivity();
+    NativeModules.MyNativeModule.startActivity(deviceName);
   };
 
   return (
@@ -93,14 +105,12 @@ const App = () => {
         <Button title="Start Scanning" onPress={onPressScan} />
       </View>
       <View style={{marginVertical: 10}}>
-        <Button title="Send" onPress={onPressSend} />
-      </View>
-      <View style={{marginVertical: 10}}>
         <Button title="Stop" onPress={onPressStop} />
       </View>
       <View style={{marginVertical: 10}}>
         <Button title="Start Activity" onPress={onPressActivity} />
       </View>
+      <Text>Running: {isRunning ? 'TRUE' : 'FALSE'}</Text>
       <ScrollView style={{marginTop: 60}}>
         {devices.map(x => {
           return (
