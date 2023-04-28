@@ -1,11 +1,18 @@
 import React, {useEffect, useState} from 'react';
-import {Button, SafeAreaView, View, Text, ScrollView} from 'react-native';
+import {
+  Button,
+  SafeAreaView,
+  View,
+  Text,
+  ScrollView,
+  NativeModules,
+} from 'react-native';
 import Nearby from './Nearby';
 
 import {getDeviceName} from 'react-native-device-info';
 
 const App = () => {
-  const [deviceName, setDeviceName] = useState('');
+  const [deviceName, setDeviceName] = useState('devicename');
   const [devices, setDevices] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -40,17 +47,12 @@ const App = () => {
   }, []);
 
   function onPressStart() {
-    Nearby.init()
-      .then(success => {
-        if (success) {
-          Nearby.start(deviceName);
-        }
-      })
-      .catch(console.error);
+    Nearby.start(deviceName);
   }
 
   const onPressStop = () => {
     Nearby.stop();
+    setDevices([]);
   };
 
   return (
@@ -64,12 +66,22 @@ const App = () => {
         }}>
         Nome del dispositivo: {deviceName}
       </Text>
-      <View style={{marginVertical: 10}}>
+      <View style={{marginBottom: 60}}>
         <Button
           title={isRunning ? 'Stop' : 'Start'}
           onPress={isRunning ? onPressStop : onPressStart}
         />
       </View>
+      <View style={{marginVertical: 10}}>
+        <Button title="Clear logs" onPress={() => setDevices([])} />
+      </View>
+      <Button
+        title="send (solo per test)"
+        onPress={() => {
+          NativeModules.MyNativeModule.send('active screen');
+        }}
+      />
+
       <ScrollView style={{marginTop: 60}}>
         {devices.map((x, i) => {
           return (

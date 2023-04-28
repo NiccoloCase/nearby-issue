@@ -1,9 +1,4 @@
-import {
-  NativeModules,
-  Platform,
-  PermissionsAndroid,
-  NativeEventEmitter,
-} from 'react-native';
+import {NativeModules, Platform, NativeEventEmitter} from 'react-native';
 
 const isAndroid = Platform.OS == 'android';
 
@@ -13,8 +8,7 @@ const isAndroid = Platform.OS == 'android';
  */
 const start = message => {
   if (isAndroid) {
-    NativeModules.MyNativeModule.start();
-    NativeModules.MyNativeModule.startActivity(message);
+    NativeModules.MyNativeModule.start(message);
   }
 };
 
@@ -41,45 +35,6 @@ const isActive = () => {
   });
 };
 
-/**
- * Inizzializza nearby e i permessi
- */
-const init = () => {
-  if (isAndroid) {
-    return new Promise(resolve => {
-      PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-        PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-        PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES,
-      ]).then(result => {
-        const isGranted =
-          result['android.permission.BLUETOOTH_CONNECT'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          result['android.permission.BLUETOOTH_SCAN'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          result['android.permission.ACCESS_FINE_LOCATION'] ===
-            PermissionsAndroid.RESULTS.GRANTED;
-
-        console.log({isGranted});
-
-        NativeModules.MyNativeModule.initNearby(isPlayServicesAvailable => {
-          console.log({isPlayServicesAvailable});
-          if (isPlayServicesAvailable) {
-            resolve(true);
-            return;
-          } else {
-            resolve(false);
-          }
-        });
-      });
-    });
-  }
-};
-
 const registerToEvents = (
   onMessageFound,
   onMessageLost,
@@ -94,6 +49,12 @@ const registerToEvents = (
     eventEmitter.addListener('onMessageLost', onMessageLost),
     eventEmitter.addListener('onActivityStart', onActivityStart),
     eventEmitter.addListener('onActivityStop', onActivityStop),
+    eventEmitter.addListener('onPermissionsRejected', () => {
+      alert('Permessi non concessi');
+    }),
+    eventEmitter.addListener('onGooglePlayServicesNotAvailable', () => {
+      alert('onGooglePlayServicesNotAvailable');
+    }),
   );
 
   return () => {
@@ -102,7 +63,6 @@ const registerToEvents = (
 };
 
 export default {
-  init,
   start,
   stop,
   isActive,

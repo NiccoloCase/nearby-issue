@@ -12,6 +12,8 @@ import android.util.Log;
 
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.messages.Message;
+import com.google.android.gms.nearby.messages.MessagesOptions;
+import com.google.android.gms.nearby.messages.NearbyPermissions;
 import com.google.android.gms.nearby.messages.PublishOptions;
 import com.google.android.gms.nearby.messages.Strategy;
 
@@ -38,18 +40,22 @@ public class MyForegroundService extends Service {
                         int clock = 0;
 
                         while (true && !isKilled) {
-                            Log.d("ReactNative", "FOREGROUND SERVICE [" + clock + "]");
+                            Log.d("ReactNative", "FOREGROUND SERVICE [chiamata numero " + clock + "]");
                             clock++;
 
                             // NEARBY:
                             context.message = new Message(message.getBytes());
                             Strategy strategy = new Strategy.Builder().setTtlSeconds(Strategy.TTL_SECONDS_MAX).build();
+
                             PublishOptions options = new PublishOptions.Builder().setStrategy(strategy).build();
-                            Nearby.getMessagesClient(context).publish(context.message,options);
-                            Log.d("ReactNative", "foreground sending...");
+                            Nearby.getMessagesClient(context,
+                                    new MessagesOptions.Builder().setPermissions(NearbyPermissions.BLE).build())
+                                    .publish(context.message,options);
+
+                            Log.d("ReactNative", "SEND BACKGROUND");
 
                             // loop:
-                            try {   Thread.sleep(1 * 60 * 1000); } // AGGIORNAMENTI OGNI MINUTO!
+                            try {   Thread.sleep(30 * 1000); } // AGGIORNAMENTI OGNI 30 SECONDI!
                             catch (InterruptedException e) {  e.printStackTrace(); }
                         }
                     }
@@ -57,7 +63,7 @@ public class MyForegroundService extends Service {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             // Channel
-            final String CHANNEL_ID = "FOREGROUND-CHANNEL-ID";
+            final String CHANNEL_ID = "Attività in Background";
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID,CHANNEL_ID, NotificationManager.IMPORTANCE_LOW);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
             // Azioni
@@ -90,17 +96,29 @@ public class MyForegroundService extends Service {
         return null;
     }
 
-    @Override
-    // QUANDO L'APP VIENE CHIUSA
-    public void onTaskRemoved(Intent rootIntent) {
-        super.onTaskRemoved(rootIntent);
-        Log.d("ReactNative", "KILLING FOREGROUND");
+
+
+    private void stop(){
         isKilled = true;
         unpublish();
         stopForeground(true);
         stopSelf();
     }
 
+    @Override
+    // QUANDO L'APP VIENE CHIUSA
+    public void onTaskRemoved(Intent rootIntent) {
+        super.onTaskRemoved(rootIntent);
+        Log.d("ReactNative", "KILLING SERVICE FROM BACKGROUND");
+        stop();
+    }
+
+    @Override
+    public void onDestroy() {
+        Log.d("ReactNative", "ON DESTROY");
+        super.onDestroy();
+        this.stop();
+    }
 
     private void runClock(){
         new Thread(
