@@ -110,7 +110,7 @@ public class MyForegroundService extends Service {
     public void onTaskRemoved(Intent rootIntent) {
         super.onTaskRemoved(rootIntent);
         Log.d("ReactNative", "KILLING SERVICE FROM BACKGROUND");
-        stop();
+        this.stop();
     }
 
     @Override
@@ -141,6 +141,9 @@ public class MyForegroundService extends Service {
 
 
     private void unpublish(){
+        if(this.message == null) return;
+        Log.d("ReactNative", "UNPUBLISH");
         Nearby.getMessagesClient(context).unpublish(this.message);
+        this.message = null;
     }
 }

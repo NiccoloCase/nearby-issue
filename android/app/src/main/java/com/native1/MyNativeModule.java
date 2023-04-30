@@ -45,6 +45,8 @@ public class MyNativeModule extends ReactContextBaseJavaModule  implements Permi
 
     private String messageText;
 
+    private MessagesClient messagesClient;
+
 
     MyNativeModule(ReactApplicationContext context) {
         super(context);
@@ -70,8 +72,11 @@ public class MyNativeModule extends ReactContextBaseJavaModule  implements Permi
     public void stop() {
         Activity currentActivity = getCurrentActivity();
         if (currentActivity != null) {
-            if (this.message != null)
-                Nearby.getMessagesClient(currentActivity).unpublish(this.message);
+            if (this.message != null) {
+                messagesClient.unpublish(this.message);
+                this.message = null;
+                emitMessageEvent("onActivityStop", "stopped"); // @remove
+            }
             if (this.messageListener != null)
                 Nearby.getMessagesClient(currentActivity).unsubscribe(this.messageListener);
             if (this.serviceIntent != null) {
@@ -124,6 +129,7 @@ public class MyNativeModule extends ReactContextBaseJavaModule  implements Permi
         startScan();
         // avvia servizio backgrund di publish
         startPublishActivity(messageText);
+        sendMessage();
     }
 
     // INIZIALIZZA EVENTI
@@ -141,6 +147,11 @@ public class MyNativeModule extends ReactContextBaseJavaModule  implements Permi
                 emitMessageEvent("onMessageLost", new String(message.getContent()));
             }
         };
+
+
+        messagesClient = Nearby.getMessagesClient(getCurrentActivity(), new MessagesOptions.Builder()
+                .setPermissions(NearbyPermissions.BLE)
+                .build());
     }
 
 
@@ -161,6 +172,25 @@ public class MyNativeModule extends ReactContextBaseJavaModule  implements Permi
             }
             emitMessageEvent("onActivityStart", "started");
         }
+    }
+
+    void sendMessage(){
+        Activity currentActivity = getCurrentActivity();
+        if (currentActivity != null) {
+            this.message = new Message(messageText.getBytes());
+
+
+            Strategy strategy = new Strategy.Builder().setTtlSeconds(Strategy.TTL_SECONDS_MAX).build();
+            PublishOptions options = new PublishOptions.Builder().setStrategy(strategy).build();
+
+            messagesClient.publish(this.message,options);
+
+
+            emitMessageEvent("onActivityStart", "started");
+        }
+
+
+
     }
 
     // START SCAN
